@@ -1,0 +1,47 @@
+{%extends "layout.html" %}
+{% block title %}
+Packs
+{% endblock %}
+{%block main%}
+<style>
+    .simply-days-section {
+        display: none;
+    }
+</style>
+<div class="container-fluid overflow-hidden" style="text-align: -webkit-center;">
+    <div id="packsCnt">
+        <form method="POST" action="/claim" id="claim" style="display: none;"></form>
+        <form method="GET" action="/openedPacks" id="openPacks" style="display: none;"></form>
+        {% if userPacks > 0%}
+        <div class="col mt-2">
+            <h3 class="mb-0">Amount:</h3>
+            <h3 style="color: green;" class="mb-0">{{userPacks}}</h3>
+        </div>
+        <div class="row justify-content-center p-3" style="height: 429px;">
+            <div class="col-7 col-sm-6 col-md-4 col-lg-3 col-xxl-2"
+                style="width: 340px; height: 100%; background-image: url('static/408.png'); background-position: center;">
+            </div>
+        </div>
+        <button type="submit" form="openPacks" class="btn btn-primary" id="btnOpenPack">Open</button>
+        {% else %}
+        <div class="col mt-2">
+            <h3 class="mb-0">Amount:</h3>
+            <h3 style="color: red;">{{userPacks}}</h3>
+        </div>
+        {% endif %}
+        <button class="btn btn-primary" id="claimButton">
+            <div id="countdown" style="display: inline-flex;">
+            </div>
+        </button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/simplycountdown.js@1.7.0/dist/simplyCountdown.min.js"></script>
+    <script src="static/index.js"></script>
+    <script>
+        var dateData = {{ data| tojson}};
+        var date = new Date(dateData)
+        console.log(date)
+        countdown()
+    </script>
+</div>
+
+{%endblock%}

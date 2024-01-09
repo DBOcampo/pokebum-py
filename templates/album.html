@@ -1,0 +1,63 @@
+{%extends "layout.html" %}
+{% block title %}
+Album
+{% endblock %}
+
+{%block main%}
+{% set outterLoop = 0 %}
+{% for type, data in ghosts.items() %}
+  {% for values in data %}
+    {% if loop.index0 % 12 == 0 %}
+    
+      <div id="{{values['type']}}Type" class="container-fluid mb-5 text-center albumPage fadeAlbum"
+        style="height: 85vh; max-height: 800px; position: relative;">
+        <a class="next" onclick="changePage(1)">&#10095;</a>
+        <h5 class="my-1">{{values["type"]}} - Page: </h5>
+        <div class="row row-cols-1 mx-4 row-cols-lg-2" style="background-image: url('{{values['back']}}');"
+          id="albumBackground">
+    {% endif %}
+          {% if loop.index0 % 6 == 0 %}
+          <div class="col" style='border: 2px solid #000000b0;'>
+            <div class="row row-cols-3 align-items-center" style="height: 100%;">
+          {% endif %}
+              <div class="col p-sticker" style="max-height: 45%;">
+                {%if values['card'] == '' %}
+                  <div class="sticker" style="background-image: url('{{values['back']}}'); filter: saturate(0.5);">
+                    <p class="text-break names namesColor">{{values['name']}}</p>
+                  </div>
+                {%else%}
+                  <div class="sticker" style="background-image: url('{{values['card']}}'); filter: none;">
+                    <p class="text-break names namesColor">{{values['name']}}</p>
+                  </div>
+                {%endif%}
+              </div>
+          {% if loop.index % 6 == 0 or loop.last == True %}
+            </div>
+          </div>
+          {% endif %}
+          {% if loop.index % 12 == 0  or loop.last == True%}
+            </div>
+            <a class="prev" onclick="changePage(-1)">&#10094;</a>
+          </div>
+          {% endif %}
+        {% endfor %}
+{% endfor %}
+<div class="container-fluid" style="text-align: center;">
+  <div class="row row-cols-2 justify-content-center">
+    <div class="col-4 arrow" id="arrowLeft" onclick="changePage(-1)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor"
+        class="bi bi-arrow-left-circle arrowColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd"
+          d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-4.5-.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5z" />
+      </svg>
+    </div>
+    <div class="col-4 arrow" id="arrowRight" onclick="changePage(1)">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor"
+        class="bi bi-arrow-right-circle arrowColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd"
+          d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z" />
+      </svg>
+    </div>
+  </div>
+</div>
+{%endblock%}

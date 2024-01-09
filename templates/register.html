@@ -1,0 +1,56 @@
+{%extends "layout.html" %}
+{% block title %}
+Login
+{% endblock %}
+{%block main%}
+<div class="container-fluid" style="text-align: -webkit-center; height: 100vh;">
+    <div class="row" style="justify-content: center; height: 100%;">
+        <div class="col-9 col-sm-6 col-md-5 col-lg-4">
+            <div class="card text-center" style="top: 10%;">
+                <div class="row row-cols-2 mx-0">
+                    <a href="/login" class="themeColors"
+                        style="border-right: 1px solid rgba(0, 0, 0, 0.175); border-top-left-radius: 0.375rem; cursor: pointer;">
+                        <div class="col themeColors py-1">Login</div>
+                    </a>
+                    <a href="/register" class="themeColors"
+                        style="border-left: 1px solid rgba(0, 0, 0, 0.175); border-top-right-radius: 0.375rem; cursor: pointer;">
+                        <div class="col themeColors py-1">Register</div>
+                    </a>
+                </div>
+                <form action="/register" method="POST">
+                    {% if error is defined %}
+                        <div class="my-3" style="border-top: 1px solid rgba(0, 0, 0, 0.175);">
+                            <div class="alert alert-danger" role="alert">{{error}}</div>
+                        </div>
+                    {% endif %}
+                    <div class="mb-3" style="border-top: 1px solid rgba(0, 0, 0, 0.175);">
+                        <label for="exampleFormControlInput1" class="form-label mt-2">Username</label>
+                        <div style="text-align: -webkit-center;">
+                            <input type="username" class="form-control" id="username" name="username" placeholder="Username"
+                                style="width: 90%;">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="exampleFormControlInput1" class="form-label">Password</label>
+                        <div style="text-align: -webkit-center;">
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Password"
+                                style="width: 90%;">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="exampleFormControlInput1" class="form-label">Repeat password</label>
+                        <div style="text-align: -webkit-center;">
+                            <input type="password" class="form-control" id="confirmation" name="confirmation" placeholder="Password"
+                                style="width: 90%;">
+                        </div>
+                    </div>
+                    <div class="mb-3" style="text-align: -webkit-center;">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{%endblock%}

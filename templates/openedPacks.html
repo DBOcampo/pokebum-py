@@ -1,0 +1,42 @@
+{%extends "layout.html" %}
+{% block title %}
+Packs Opened
+{% endblock %}
+{%block main%}
+<link rel="stylesheet" href="static/flip.css">
+<div class="container-fluid overflow-hidden" style="text-align: -webkit-center;">
+    <form method="POST" action="/openedPacks" id="closePacks" style="display: none;"></form>
+    <div id="openedPacksCnt">
+        <div class="row gx-5 p-3 row-cols-1 row-cols-md-1 row-cols-lg-1 justify-content-center">
+            {% for poke in pokeData %}
+            <div class="col mt-5 mb-3" style="height: 256px; max-width: 256px;">
+                <div class="flip-container grow" id="card{{poke[0]}}" onclick="flip(this)" style="cursor: pointer;">
+                    <div class="flipper">
+                        <div class="front">
+                            {% set key = poke[2] %}
+                            <div class="sticker" style="background-image: url('{{backgrounds[key]}}'); box-shadow:none">Click to reveal!</div>
+                        </div>
+                        <div class="back">
+                            <div class="sticker namesColor" style="background-image: url('{{poke[3]}}'); box-shadow:none">
+                                {{poke[1]}} | <b style="display: inline;"> {{poke[2]}}</b></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {# <div class="flip-container" id="card{{poke[1]}}" onclick="flip(this)" style="cursor: pointer;">
+                <div class="flipper">
+                    <div class="front">
+                        <img src="https://iili.io/HR6p8wg.webp">
+                    </div>
+                    <div class="back">
+                        <img src="https://iili.io/HR6pGwu.webp">
+                    </div>
+                </div>
+            </div> #}
+            {% endfor %}
+        </div>
+        <button type="submit" form="closePacks" class="btn btn-danger" id="placeButton" style="display: none;">Place stickers</button>
+        <button onclick="flipAll()" class="btn btn-warning" id="flipAllButton">Reveal all</button>
+    </div>
+</div>
+{%endblock%}
