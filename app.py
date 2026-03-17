@@ -1,29 +1,52 @@
 import datetime
-import json
-import sqlite3
-from flask import Flask, flash, redirect, render_template, request, session, jsonify, Response, g
+from flask import Flask, flash, redirect, render_template, request, session, jsonify, g
 from flask_session import Session
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from helpers import login_required
+import mysql.connector
+from mysql.connector import pooling
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 app = Flask(__name__)
 
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "pokebum_secret")
 
 CORS(app)
 Session(app)
 
+# Connection pool - evita el problema de max connections
+db_pool = pooling.MySQLConnectionPool(
+    pool_name="pokebum_pool",
+    pool_size=5,
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    port=int(os.getenv("DB_PORT", 3306)),
+    database=os.getenv("DB_DATABASE")
+)
+
+def get_db():
+    if "db" not in g:
+        g.db = db_pool.get_connection()
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
 usernameGlobal = ''
 typesNames = ['Fire', 'Grass', 'Water', 'Normal', 'Bug', 'Poison', 'Electric',
-                  'Fighting', 'Ground', 'Rock', 'Psychic', 'Ice', 'Dragon', 'Ghost', 'Fairy']
+              'Fighting', 'Ground', 'Rock', 'Psychic', 'Ice', 'Dragon', 'Ghost', 'Fairy']
 openedPacksData = []
-con = sqlite3.connect(
-    r"C:\xampp\htdocs\phpLiteAdmin\pokebum2", check_same_thread=False)
-cur = con.cursor()
 
 
 @app.before_request
@@ -33,65 +56,69 @@ def before_request():
 
 @app.after_request
 def after_request(response):
-    """Ensure responses aren't cached"""
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Expires"] = 0
     response.headers["Pragma"] = "no-cache"
     return response
 
+
 def getBacks():
+    con = get_db()
+    cur = con.cursor()
     backData = {}
     for name in typesNames:
-        typeDataUnrender = cur.execute(
-            f"SELECT * FROM 'backgrounds' WHERE type = '{name}'")
-        typeData = typeDataUnrender.fetchall()
+        cur.execute("SELECT * FROM backgrounds WHERE type = %s", (name,))
+        typeData = cur.fetchall()
         for data in typeData:
-                backData[f'{name}'] = data[1]
+            backData[name] = data[1]
     return backData
 
+
 def createTypes():
+    con = get_db()
+    cur = con.cursor()
     backData = getBacks()
     cardsOwned = getOwnedCards()
-    
     typesData = {}
 
     for name in typesNames:
-        typeDataUnrender = cur.execute(
-            f"SELECT * FROM 'pokemons' WHERE type = '{name}'")
-        typeData = typeDataUnrender.fetchall()
-        typesData[f'{name}'] = []
+        cur.execute("SELECT * FROM pokemons WHERE type = %s", (name,))
+        typeData = cur.fetchall()
+        typesData[name] = []
         for data in typeData:
             if data[2] == name:
                 value = {'id': data[0], 'name': data[1],
-                         'type': data[2], 'card': data[3], 'back': backData[f'{name}']}
+                         'type': data[2], 'card': data[3], 'back': backData.get(name, '')}
                 if value['id'] not in cardsOwned:
                     value['card'] = ''
-                typesData[f'{name}'].append(value)
+                typesData[name].append(value)
     return typesData
 
+
 def getUserPacks():
-    packsUR = cur.execute(
-            "SELECT packsAmount FROM users WHERE username = ?", (usernameGlobal,))
-    userPacks = packsUR.fetchall()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT packsAmount FROM users WHERE username = %s", (usernameGlobal,))
+    userPacks = cur.fetchall()
     return userPacks
 
+
 def getOwnedCards():
-    userIdUR = cur.execute("SELECT id FROM users WHERE username = ?", (usernameGlobal,))
-    userId = userIdUR.fetchall()
-    
-    cardsOwnedUR = cur.execute("SELECT pokemonId FROM cardsFound WHERE userId = ?", (userId[0][0],))
-    cardsOwnedAll = cardsOwnedUR.fetchall()
-    cardsOwned = []
-        
-    for card in cardsOwnedAll:
-        cardsOwned.append(card[0])
-    return cardsOwned
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT id FROM users WHERE username = %s", (usernameGlobal,))
+    userId = cur.fetchall()
+    if not userId:
+        return []
+    cur.execute("SELECT pokemonId FROM cardsFound WHERE userId = %s", (userId[0][0],))
+    cardsOwnedAll = cur.fetchall()
+    return [card[0] for card in cardsOwnedAll]
+
 
 @app.route("/")
 @login_required
 def mainPage():
     return render_template("mainPage.html")
-
 
 
 @app.route('/route/to/data')
@@ -121,67 +148,54 @@ def album():
 
 @app.route("/index")
 def index():
-    lastPackUnrender = cur.execute(
-        "SELECT lastPack FROM users WHERE username = ?", (usernameGlobal,))
-    lastPack = lastPackUnrender.fetchall()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT lastPack FROM users WHERE username = %s", (usernameGlobal,))
+    lastPack = cur.fetchall()
     return render_template("index.html", data=lastPack[0][0])
 
 
 @app.route("/claim", methods=["POST", "GET"])
 def claim():
     if request.method == 'POST':
+        con = get_db()
+        cur = con.cursor()
         userPacks = getUserPacks()
         date = datetime.datetime.now()
         date_time = date.strftime("%Y-%m-%d %H:%M:%S")
-
-        cur.execute("UPDATE users SET lastPack = ? WHERE username = ?",
-                    (date_time, usernameGlobal))
-
-        cur.execute("UPDATE users SET packsAmount = ? WHERE username = ?",
-                    (userPacks[0][0] + 1, usernameGlobal))
+        cur.execute("UPDATE users SET lastPack = %s WHERE username = %s", (date_time, usernameGlobal))
+        cur.execute("UPDATE users SET packsAmount = %s WHERE username = %s", (userPacks[0][0] + 1, usernameGlobal))
         con.commit()
     return redirect("/packs")
 
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
-
-    # Forget any user_id
     session.clear()
     errorMessage = ''
     username = request.form.get("username")
-    # User reached route via POST (as by submitting a form via POST)
-    if request.method == "POST":
 
-        # Ensure username was submitted
+    if request.method == "POST":
         if not request.form.get("username"):
             errorMessage = "Must provide a username"
-            return render_template("register.html", error=errorMessage)
-
-        # Ensure password was submitted
+            return render_template("login.html", error=errorMessage)
         elif not request.form.get("password"):
             errorMessage = "Must provide a password"
-            return render_template("register.html", error=errorMessage)
-
-        # Query database for username
-        rowsUnrendered = cur.execute(
-            "SELECT * FROM users WHERE username = ?", (username,))
-        rows = rowsUnrendered.fetchall()
-        # Ensure username exists and password is correct
-        if len(rows) != 1 or not check_password_hash(rows[0][2], (request.form.get("password"))):
-            errorMessage = "Invalid username and/or password"
             return render_template("login.html", error=errorMessage)
 
-        # Remember which user has logged in
+        con = get_db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+        rows = cur.fetchall()
+
+        if len(rows) != 1 or not check_password_hash(rows[0][2], request.form.get("password")):
+            errorMessage = "Invalid username and/or password"
+            return render_template("login.html", error=errorMessage)
 
         session["user_id"] = rows[0][0]
         global usernameGlobal
         usernameGlobal = rows[0][1]
-
-        # Redirect user to home page
         return redirect("/")
-
-    # User reached route via GET (as by clicking a link or via redirect)
     else:
         return render_template("login.html")
 
@@ -189,22 +203,18 @@ def login():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
+        con = get_db()
+        cur = con.cursor()
         name = request.form.get("username")
-        passwords = [request.form.get(
-            "password"), request.form.get("confirmation")]
-        usernamesUnrender = cur.execute("SELECT username FROM users")
-        usernames = usernamesUnrender.fetchall()
-        usernamesList = []
+        passwords = [request.form.get("password"), request.form.get("confirmation")]
 
-        for user in usernames:
-            u = user[0]
-            usernamesList.append(u)
+        cur.execute("SELECT username FROM users")
+        usernames = [user[0] for user in cur.fetchall()]
 
         errorMessage = ''
-        if name == '' or name in usernamesList:
-            errorMessage = "Type in an username or select one that isnt already in use"
+        if name == '' or name in usernames:
+            errorMessage = "Type in a username or select one that isn't already in use"
             return render_template("register.html", error=errorMessage)
-
         if passwords[0] != passwords[1]:
             errorMessage = "Your passwords don't match"
             return render_template("register.html", error=errorMessage)
@@ -212,10 +222,8 @@ def register():
             errorMessage = "One or both of your password fields are empty"
             return render_template("register.html", error=errorMessage)
 
-        hash = generate_password_hash(
-            passwords[0], method='pbkdf2:sha256', salt_length=8)
-        cur.execute(
-            f"INSERT INTO users (username, password, packsAmount) VALUES (?, ?, ?)", (name, hash, 0))
+        hash = generate_password_hash(passwords[0], method='pbkdf2:sha256', salt_length=8)
+        cur.execute("INSERT INTO users (username, password, packsAmount) VALUES (%s, %s, %s)", (name, hash, 0))
         con.commit()
         return redirect("/login")
     else:
@@ -226,63 +234,55 @@ def register():
 @login_required
 def packs():
     session.pop('reloaded', None)
-    packsUR = cur.execute(
-        "SELECT packsAmount FROM users WHERE username = ?", (usernameGlobal,))
-    userPacks = packsUR.fetchall()
-    lastPackUnrender = cur.execute(
-        "SELECT lastPack FROM users WHERE username = ?", (usernameGlobal,))
-    lastPack = lastPackUnrender.fetchall()
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("SELECT packsAmount FROM users WHERE username = %s", (usernameGlobal,))
+    userPacks = cur.fetchall()
+    cur.execute("SELECT lastPack FROM users WHERE username = %s", (usernameGlobal,))
+    lastPack = cur.fetchall()
     return render_template("packs.html", data=lastPack[0][0], userPacks=userPacks[0][0])
 
 
 @app.route("/openedPacks", methods=["GET", "POST"])
 @login_required
-def openedPacks():    
-  
-    userIdUR = cur.execute("SELECT id FROM users WHERE username = ?", (usernameGlobal,))
-    userId = userIdUR.fetchall()
-    
-    packsUR = cur.execute(
-        "SELECT packsAmount FROM users WHERE username = ?", (usernameGlobal,))
-    userPacks = packsUR.fetchall()
-    
+def openedPacks():
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute("SELECT id FROM users WHERE username = %s", (usernameGlobal,))
+    userId = cur.fetchall()
+
     backs = getBacks()
-    
+
     if request.method == "GET":
         if 'reloaded' in session:
             session.pop('reloaded', None)
             return redirect("/packs")
-        if request.method == "POST":
-            session.pop('reloaded', None)
-            return redirect("/packs")
 
         session['reloaded'] = True
-        
-        typeDataUnrender = cur.execute(
-                "SELECT * FROM pokemons ORDER BY RANDOM() LIMIT 5;")
-        typeData = typeDataUnrender.fetchall()
-        
+        cur.execute("SELECT * FROM pokemons ORDER BY RAND() LIMIT 5")
+        typeData = cur.fetchall()
+
         userPacks = getUserPacks()
-        
+
         global openedPacksData
         openedPacksData = typeData
-        
-        cur.execute("UPDATE users SET packsAmount = ? WHERE username = ?",
-                        (userPacks[0][0] - 1, usernameGlobal))
+
+        cur.execute("UPDATE users SET packsAmount = %s WHERE username = %s",
+                    (userPacks[0][0] - 1, usernameGlobal))
         con.commit()
         return render_template("openedPacks.html", pokeData=openedPacksData, backgrounds=backs)
+
     if request.method == "POST":
-        ids = []
-        for type in openedPacksData:
-            ids.append(type[0])
-            
+        ids = [type[0] for type in openedPacksData]
         cardsOwned = getOwnedCards()
         for id in ids:
             if id in cardsOwned:
                 continue
-            cur.execute("INSERT INTO cardsFound (pokemonId, userId) VALUES (?, ?)", (id, userId[0][0]))
-            con.commit()
+            cur.execute("INSERT INTO cardsFound (pokemonId, userId) VALUES (%s, %s)", (id, userId[0][0]))
+        con.commit()
         return redirect("/packs")
-    
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

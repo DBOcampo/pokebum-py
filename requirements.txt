@@ -1,5 +1,7 @@
-cs50
 Flask
 Flask-Session
-Flask_cors
+Flask-Cors
+mysql-connector-python
+python-dotenv
+Werkzeug
 requests
